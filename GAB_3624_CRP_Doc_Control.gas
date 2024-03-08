@@ -1,0 +1,130 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Project is going to save the printed document to Document Control from Hooks (42210-Script1,42211-Script2, or 42212-Script3)
+
+V.Local.iRptID.Declare(Long)
+V.Local.iRptSeq.Declare(Long)
+V.Local.sPDFCopy.Declare(String)
+V.Local.sNewPDF.Declare(String)
+V.Local.sFileName.Declare(String)
+V.Local.sCopyFileName.Declare(String)
+V.Local.sFileType.Declare(String)
+V.Local.sFilePath.Declare(String)
+V.Local.sKey.Declare(String)
+V.Local.iLinkID.Declare(Long)
+V.Local.iLinkType.Declare(Long)
+V.Local.sDataType.Declare(String)
+V.Local.sDate.Declare(String)
+V.Local.sSQL.Declare(String)
+V.Local.sMsg.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.iRet.Declare(Long)
+V.Local.sJob.Declare(String)
+V.Local.sSuffix.Declare(String)
+V.Local.sDesc.Declare(String)
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+V.Local.iRptID.Set(V.Passed.Data-ReportId)
+V.Local.iRptSeq.Set(V.Passed.Data-ReportSeq)
+V.Local.sPDFCopy.Set(V.Passed.DATA-ReportCopyPdf)
+F.Intrinsic.String.Split(V.Local.sPDFCopy,"\",V.Local.sFileName)
+F.Intrinsic.String.Format(V.Ambient.Date,"YYYYMMDD",V.Local.sDate)
+
+F.Intrinsic.Control.If(V.Local.iRptSeq,>=,10)
+	F.Intrinsic.String.Build("No setup currently for custom report {0}-{1}.",V.Local.iRptID,V.Local.iRptSeq,V.Local.sMsg)
+	F.Intrinsic.UI.Msgbox(V.Local.sMsg,"Custom Check")
+	F.Intrinsic.Control.CallSub(Subunload)
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Build("This process is going to add this report ({0}) to Document Control.{1}{1}Do you want to continue?",V.Local.iRptID,V.Ambient.NewLine,V.Local.sMsg)
+	F.Intrinsic.UI.Msgbox(V.Local.sMsg,"Confimation",4,V.Local.iRet)
+
+	F.Intrinsic.Control.If(V.Local.iRet,=,6)
+		F.Intrinsic.Control.SelectCase(V.Local.iRptID)
+'Report ID 001811 - V_BI_BAR_HEAD - SF_BarCodeWO_Ext.pdf - Shop Floor Control > Reports > Bar Code Work Order
+			F.Intrinsic.Control.Case(1811)
+				V.Local.sDataType.Set("WO")
+				V.Local.iLinkType.Set(00020)
+				F.Intrinsic.String.Build("SELECT JOB,SUFFIX FROM V_BI_BAR_HEAD WHERE TERMINAL = '{0}' AND RPTID = '00{1}';",V.Caller.Terminal,V.Local.iRptID,V.Local.sSQL)
+				F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSQL,V.Local.sRet)
+				F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+				F.Intrinsic.Control.If(V.Local.sRet.UBound,=,2)
+					V.Local.sJob.Set(V.Local.sRet(0))
+					V.Local.sSuffix.Set(V.Local.sRet(1))
+					F.Intrinsic.String.Build("{0}{1}",V.Local.sJob,V.Local.sSuffix,V.Local.sKey)
+					F.Intrinsic.String.Build("{0}-{1}",V.Local.sDataType,V.Local.sKey,V.Local.sDesc)
+				F.Intrinsic.Control.Else
+					F.Intrinsic.UI.Msgbox("The report printed has too many job references, please select one job for the report and print again.","Job Validation")
+					F.Intrinsic.Control.CallSub(Subunload)
+				F.Intrinsic.Control.EndIf
+'Report ID 001809 - V_BI_WO_DETAIL - SF_WODtl.rpt - Shop Floor Control > Reports > Work Order Detail
+			F.Intrinsic.Control.Case(1809)
+				V.Local.sDataType.Set("WO")
+				V.Local.iLinkType.Set(00020)
+				F.Intrinsic.String.Build("SELECT DISTINCT JOB, JOB_SUFFIX FROM V_BI_WO_DETAIL WHERE TRMNL = '{0}' AND RPTID = '00{1}';",V.Caller.Terminal,V.Local.iRptID,V.Local.sSQL)
+				F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSQL,V.Local.sRet)
+				F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+				F.Intrinsic.Control.If(V.Local.sRet.UBound,=,2)
+					V.Local.sJob.Set(V.Local.sRet(0))
+					V.Local.sSuffix.Set(V.Local.sRet(1))
+					F.Intrinsic.String.Build("{0}{1}",V.Local.sJob,V.Local.sSuffix,V.Local.sKey)
+					F.Intrinsic.String.Build("{0}-{1}",V.Local.sDataType,V.Local.sKey,V.Local.sDesc)
+				F.Intrinsic.Control.Else
+					F.Intrinsic.UI.Msgbox("The report printed has too many job references, please select one job for the report and print again.","Job Validation")
+					F.Intrinsic.Control.CallSub(Subunload)
+				F.Intrinsic.Control.EndIf
+'Report ID 000052 - V_BI_ACKNWLDGMNT - OE_ACKNOWLEDGEMENT.RPT - Order Entry > Reports > Acknowledgement
+			F.Intrinsic.Control.Case(52)
+				V.Local.sDataType.Set("SO")
+				V.Local.iLinkType.Set(00045)
+				F.Intrinsic.String.Build("SELECT DISTINCT ORDER_NO FROM V_BI_ACKNWLDGMNT WHERE TERMINAL = '{0}' AND RPTID = '0000{1}';",V.Caller.Terminal,V.Local.iRptID,V.Local.sSQL)
+				F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSQL,V.Local.sKey)
+				F.Intrinsic.String.Split(V.Local.sKey,"*!*",V.Local.sRet)
+				F.Intrinsic.Control.If(V.Local.sRet.UBound,=,0)
+					F.Intrinsic.String.Build("{0}-{1}",V.Local.sDataType,V.Local.sKey,V.Local.sDesc)
+				F.Intrinsic.Control.Else
+					F.Intrinsic.UI.Msgbox("The report printed has too many job references, please select one job for the report and print again.","Job Validation")
+					F.Intrinsic.Control.CallSub(Subunload)
+				F.Intrinsic.Control.EndIf
+'If Report ID is not setup display message and close program
+			F.Intrinsic.Control.CaseElse
+				F.Intrinsic.String.Build("No setup currently available for Report ID {0}.",V.Local.iRptID,V.Local.sMsg)
+				F.Intrinsic.UI.Msgbox(V.Local.sMsg)
+				F.Intrinsic.Control.CallSub(Subunload)
+			F.Intrinsic.Control.EndSelect
+'Get path for file type to know where to move the file and create the link
+			F.Intrinsic.String.Right(V.Local.sPDFCopy,3,V.Local.sFileType)
+			F.Intrinsic.String.Build("SELECT PATH FROM ATG_DOC_PATH WHERE DOCTYPE = '{0}';",V.Local.sFileType.UCase,V.Local.sSQL)
+			F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSQL,V.Local.sFilePath)
+'Create file name for link
+			F.Intrinsic.String.Build("CrPreviewGabExport_{0}_{1}_{2}_{3}.{4}",V.Local.sDataType,V.Local.sKey,V.Local.iRptID,V.Local.sDate,V.Local.sFileType,V.Local.sCopyFileName)
+			F.Intrinsic.String.Build("{0}\{1}",V.Local.sFilePath.Trim,V.Local.sCopyFileName,V.Local.sFilePath)
+			F.Intrinsic.File.CopyFile(V.Local.sPDFCopy,V.Local.sFilePath)
+'Create Link in Document Control
+			F.Global.DocumentControl.GetLinkID(V.Local.sKey,V.Local.iLinkType,V.Local.iLinkID)
+			F.Intrinsic.Control.If(V.Local.iLinkID,=,-1)
+				F.Global.DocumentControl.CreateReference(V.Local.sKey,V.Local.iLinkType,V.Local.iLinkID)
+				F.Global.DocumentControl.AddDocument(V.Local.iLinkID,V.Local.sFilePath,V.Local.sDesc,-1,V.Local.sFileType)
+			F.Intrinsic.Control.Else
+				F.Global.DocumentControl.AddDocument(V.Local.iLinkID,V.Local.sFilePath,V.Local.sDesc,-1,V.Local.sFileType,False)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.UI.Msgbox("File added to Document Control successfully.","Complete")
+		F.ODBC.Connection!con.Close
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndIf
+
+Program.Sub.Main.End
+
+Program.Sub.subUnload.Start
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+Program.Sub.subUnload.End
+
+
